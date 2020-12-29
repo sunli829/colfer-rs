@@ -1,0 +1,9 @@
+[package]
+name = "colfer-build"
+version = "0.1.0"
+authors = ["Sunli <scott_s829@163.com>"]
+edition = "2018"
+
+[dependencies]
+nom = "6.0.1"
+case = "1.0.0"

@@ -1,0 +1,13 @@
+[package]
+name = "example"
+version = "0.1.0"
+authors = ["Sunli <scott_s829@163.com>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+chrono = "0.4.19"
+colfer = { path = "..", version = "0.1.0" }
+
+[build-dependencies]
+colfer-build = { path = "../colfer-build", version = "0.1.0" }

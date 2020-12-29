@@ -1,0 +1,53 @@
+// Package gen tests all field mapping options.
+package gen
+
+// O contains all supported data types.
+type o struct {
+	// B tests booleans.
+	b bool
+	// U32 tests unsigned 32-bit integers.
+	u32 uint32
+	// U64 tests unsigned 64-bit integers.
+	u64 uint64
+	// I32 tests signed 32-bit integers.
+	i32 int32
+	// I64 tests signed 64-bit integers.
+	i64 int64
+	// F32 tests 32-bit floating points.
+	f32 float32
+	// F64 tests 64-bit floating points.
+	f64 float64
+	// T tests timestamps.
+	t timestamp
+	// S tests text.
+	s text
+	// A tests binaries.
+	a binary
+	// O tests nested data structures.
+	o o
+	// Os tests data structure lists.
+	os []o
+	// Ss tests text lists.
+	ss []text
+	// As tests binary lists.
+	as []binary
+	// U8 tests unsigned 8-bit integers.
+	u8 uint8
+	// U16 tests unsigned 16-bit integers.
+	u16 uint16
+	// F32s tests 32-bit floating point lists.
+	f32s []float32
+	// F64s tests 64-bit floating point lists.
+	f64s []float64
+}
+
+// DromedaryCase oposes name casings.
+type dromedaryCase struct {
+	PascalCase text
+}
+
+// EmbedO has an inner object only.
+// Covers regression of issue #66.
+type EmbedO struct {
+	inner o
+}
