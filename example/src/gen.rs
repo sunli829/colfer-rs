@@ -161,6 +161,29 @@ impl Message for O {
 
 		Ok(obj)
 	}
+
+	fn size(&self) -> usize {
+		let mut size = 0;
+		size += self.b.size();
+		size += self.u32.size();
+		size += self.u64.size();
+		size += self.i32.size();
+		size += self.i64.size();
+		size += self.f32.size();
+		size += self.f64.size();
+		size += self.t.size();
+		size += self.s.size();
+		size += self.a.size();
+		size += self.o.as_ref().map(|s| s.size()).unwrap_or_default();
+		size += self.os.iter().map(|s| s.size()).sum::<usize>();
+		size += self.ss.size();
+		size += self.r#as.size();
+		size += self.u8.size();
+		size += self.u16.size();
+		size += self.f32s.size();
+		size += self.f64s.size();
+		size
+	}
 }
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -184,6 +207,12 @@ impl Message for DromedaryCase {
 
 		Ok(obj)
 	}
+
+	fn size(&self) -> usize {
+		let mut size = 0;
+		size += self.pascal_case.size();
+		size
+	}
 }
 
 #[derive(Default, Clone, Debug, PartialEq)]
@@ -206,6 +235,12 @@ impl Message for EmbedO {
 		}
 
 		Ok(obj)
+	}
+
+	fn size(&self) -> usize {
+		let mut size = 0;
+		size += self.inner.as_ref().map(|s| s.size()).unwrap_or_default();
+		size
 	}
 }
 

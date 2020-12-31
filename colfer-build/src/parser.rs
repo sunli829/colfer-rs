@@ -2,7 +2,7 @@ use case::CaseExt;
 use nom::branch::alt;
 use nom::bytes::complete::{is_not, tag};
 use nom::character::complete::{alpha1, alphanumeric1, one_of};
-use nom::combinator::{map, recognize, value};
+use nom::combinator::{eof, map, recognize, value};
 use nom::error::{context, ContextError};
 use nom::error::{ParseError, VerboseError};
 use nom::multi::{fold_many0, many0, many1};
@@ -152,9 +152,11 @@ fn colfer<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     let structs = many1(delimited(sp, struct_def, sp));
     context(
         "colfer",
-        map(pair(package, structs), |(package, structs)| Colfer {
-            package: package.to_string(),
-            structs,
+        map(tuple((package, structs, eof)), |(package, structs, _)| {
+            Colfer {
+                package: package.to_string(),
+                structs,
+            }
         }),
     )(input)
 }
@@ -172,11 +174,11 @@ mod tests {
     fn test_package() {
         assert_eq!(
             package::<VerboseError<&str>>("package MyPkg"),
-            Ok(("", "MyPkg"))
+            Ok(("", "my_pkg".to_string()))
         );
         assert_eq!(
             package::<VerboseError<&str>>("package     MyPkg"),
-            Ok(("", "MyPkg"))
+            Ok(("", "my_pkg".to_string()))
         );
     }
 
@@ -232,7 +234,7 @@ mod tests {
         );
         assert_eq!(
             field_type::<VerboseError<&str>>("abc"),
-            Ok(("", FieldType::Struct("abc".to_string())))
+            Ok(("", FieldType::Struct("Abc".to_string())))
         );
 
         assert_eq!(
@@ -253,11 +255,11 @@ mod tests {
     fn test_type_struct() {
         assert_eq!(
             type_struct::<VerboseError<&str>>("type Abc struct"),
-            Ok(("", "Abc"))
+            Ok(("", "Abc".to_string()))
         );
         assert_eq!(
             type_struct::<VerboseError<&str>>("type    Abc    struct"),
-            Ok(("", "Abc"))
+            Ok(("", "Abc".to_string()))
         );
     }
 

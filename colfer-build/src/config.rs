@@ -1,4 +1,3 @@
-use std::io::{Error, ErrorKind, Result};
 use std::path::{Path, PathBuf};
 
 use case::CaseExt;
@@ -23,17 +22,16 @@ impl Config {
         }
     }
 
-    pub fn compile<P: AsRef<Path>>(self, files: &[P]) -> Result<()> {
+    pub fn compile<P: AsRef<Path>>(self, files: &[P]) -> anyhow::Result<()> {
         for file in files {
             let source = std::fs::read_to_string(file)?;
-            let colfer =
-                parse(&source).map_err(|err| Error::new(ErrorKind::Other, err.to_string()))?;
+            let colfer = parse(&source).map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
             std::fs::write(
                 self.out_dir
                     .join(colfer.package.to_snake())
                     .with_extension("rs"),
-                generate(&colfer),
+                generate(&colfer)?,
             )?;
         }
 

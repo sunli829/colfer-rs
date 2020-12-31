@@ -73,5 +73,17 @@ impl Message for Colfer {
 
 		Ok(obj)
 	}
+
+	fn size(&self) -> usize {
+		let mut size = 0;
+		size += self.key.size();
+		size += self.host.size();
+		size += self.port.size();
+		size += self.size.size();
+		size += self.hash.size();
+		size += self.ratio.size();
+		size += self.route.size();
+		size
+	}
 }
 

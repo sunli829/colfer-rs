@@ -45,32 +45,53 @@ fn read_uint<R: Read>(r: &mut R) -> Result<u64> {
 }
 
 #[inline]
+fn uint_size(mut x: u64) -> usize {
+    let mut l = 1;
+    while x >= 0x80 {
+        x >>= 7;
+        l += 1;
+    }
+    l
+}
+
+#[inline]
 #[doc(hidden)]
 pub fn read_header<R: Read>(r: &mut R) -> Result<(u8, bool)> {
     let d = r.read_u8()?;
     Ok((d & 0x7f, d & 0x80 > 0))
 }
 
+/// A colfer message.
 pub trait Message: Sized {
+    /// Encodes the message to writer `W`.
     fn encode<W: Write>(&self, w: &mut W) -> Result<()>;
 
+    /// Decodes an instance of the message from reader `R`.
     fn decode<R: Read>(r: &mut R) -> Result<Self>;
 
+    /// Returns the encoded length of the message.
+    fn size(&self) -> usize;
+
+    /// Encodes the message to `Vec<u8>`.
     fn to_vec(&self) -> Result<Vec<u8>> {
         let mut data = Vec::new();
         self.encode(&mut data)?;
         Ok(data)
     }
 
+    /// Decodes an instance of the message from `Vec<u8>`.
     fn from_bytes(data: &[u8]) -> Result<Self> {
         Self::decode(&mut Cursor::new(data))
     }
 }
 
+#[doc(hidden)]
 pub trait Type: Sized {
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()>;
 
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self>;
+
+    fn size(&self) -> usize;
 }
 
 impl Type for bool {
@@ -83,6 +104,14 @@ impl Type for bool {
 
     fn decode<R: Read>(_r: &mut R, _flag: bool) -> Result<Self> {
         Ok(true)
+    }
+
+    fn size(&self) -> usize {
+        if *self {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -103,6 +132,16 @@ impl Type for u32 {
             Ok(read_uint(r)? as u32)
         } else {
             r.read_u32::<BE>()
+        }
+    }
+
+    fn size(&self) -> usize {
+        if *self >= 1 << 21 {
+            5
+        } else if *self != 0 {
+            1 + uint_size(*self as u64)
+        } else {
+            0
         }
     }
 }
@@ -126,6 +165,14 @@ impl Type for u64 {
             r.read_u64::<BE>()
         }
     }
+
+    fn size(&self) -> usize {
+        if *self >= 1 << 49 {
+            9
+        } else {
+            1 + uint_size(*self)
+        }
+    }
 }
 
 impl Type for i32 {
@@ -135,6 +182,10 @@ impl Type for i32 {
 
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         Ok(i64::decode(r, flag)? as i32)
+    }
+
+    fn size(&self) -> usize {
+        (*self as i64).size()
     }
 }
 
@@ -154,11 +205,18 @@ impl Type for i64 {
     }
 
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
-        // TODO: Fixme
         if !flag {
             Ok(read_uint(r)? as i64)
         } else {
             Ok((!read_uint(r)? + 1) as i64)
+        }
+    }
+
+    fn size(&self) -> usize {
+        if *self >= 0 {
+            1 + uint_size(*self as u64)
+        } else {
+            1 + uint_size((!*self + 1) as u64)
         }
     }
 }
@@ -175,6 +233,14 @@ impl Type for f32 {
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         Ok(f32::from_bits(r.read_u32::<BE>()?))
     }
+
+    fn size(&self) -> usize {
+        if *self != 0.0 {
+            1 + 4
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for f64 {
@@ -188,6 +254,14 @@ impl Type for f64 {
 
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         Ok(f64::from_bits(r.read_u64::<BE>()?))
+    }
+
+    fn size(&self) -> usize {
+        if *self != 0.0 {
+            1 + 8
+        } else {
+            0
+        }
     }
 }
 
@@ -227,6 +301,22 @@ impl Type for DateTime {
             })
         }
     }
+
+    fn size(&self) -> usize {
+        let DateTime {
+            seconds: s,
+            nano_seconds: ns,
+        } = *self;
+        if s != 0 || ns != 0 {
+            if s < 1 << 32 {
+                1 + 8
+            } else {
+                1 + 12
+            }
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for String {
@@ -245,6 +335,14 @@ impl Type for String {
         r.read_exact(&mut s)?;
         Ok(String::from_utf8(s).map_err(|err| Error::new(ErrorKind::Other, err))?)
     }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64) + self.len()
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for Vec<u8> {
@@ -262,6 +360,14 @@ impl Type for Vec<u8> {
         let mut s = vec![0; l as usize];
         r.read_exact(&mut s)?;
         Ok(s)
+    }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64) + self.len()
+        } else {
+            0
+        }
     }
 }
 
@@ -327,6 +433,18 @@ impl Type for Vec<String> {
         }
         Ok(s)
     }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64)
+                + self
+                    .iter()
+                    .map(|s| uint_size(s.len() as u64) + s.len())
+                    .sum::<usize>()
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for Vec<Vec<u8>> {
@@ -353,6 +471,18 @@ impl Type for Vec<Vec<u8>> {
         }
         Ok(s)
     }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64)
+                + self
+                    .iter()
+                    .map(|s| uint_size(s.len() as u64) + s.len())
+                    .sum::<usize>()
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for u8 {
@@ -366,6 +496,14 @@ impl Type for u8 {
 
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         r.read_u8()
+    }
+
+    fn size(&self) -> usize {
+        if *self != 0 {
+            1 + 1
+        } else {
+            0
+        }
     }
 }
 
@@ -386,6 +524,16 @@ impl Type for u16 {
             r.read_u16::<BE>()
         } else {
             Ok(r.read_u8()? as u16)
+        }
+    }
+
+    fn size(&self) -> usize {
+        if *self >= 1 << 8 {
+            3
+        } else if *self != 0 {
+            2
+        } else {
+            0
         }
     }
 }
@@ -410,6 +558,18 @@ impl Type for Vec<f32> {
         }
         Ok(s)
     }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64)
+                + self
+                    .iter()
+                    .map(|n| uint_size(n.to_bits() as u64))
+                    .sum::<usize>()
+        } else {
+            0
+        }
+    }
 }
 
 impl Type for Vec<f64> {
@@ -431,6 +591,15 @@ impl Type for Vec<f64> {
             s.push(f64::from_bits(r.read_u64::<BE>()?));
         }
         Ok(s)
+    }
+
+    fn size(&self) -> usize {
+        if !self.is_empty() {
+            1 + uint_size(self.len() as u64)
+                + self.iter().map(|n| uint_size(n.to_bits())).sum::<usize>()
+        } else {
+            0
+        }
     }
 }
 
