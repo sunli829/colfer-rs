@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package bench_pb;
+
+message Colfer {
+  int64 key = 1;
+  string host = 2;
+  uint32 port = 4;
+  int64 size = 5;
+  fixed64 hash = 6;
+  double ratio = 7;
+  bool route = 8;
+}

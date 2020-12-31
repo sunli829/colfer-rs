@@ -1,4 +1,4 @@
-#![allow(unused_variables, unused_assignments, unused_mut)]
+#![allow(unused_variables, unused_assignments, unused_mut, unused_imports)]
 
 use std::io::{Write, Read, Result};
 

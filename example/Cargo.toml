@@ -8,6 +8,8 @@ publish = false
 [dependencies]
 chrono = "0.4.19"
 colfer = { path = "..", version = "0.1.0" }
+prost = "0.7.0"
 
 [build-dependencies]
 colfer-build = { path = "../colfer-build", version = "0.1.0" }
+prost-build = "0.7.0"

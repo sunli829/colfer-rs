@@ -1,8 +1,11 @@
-use colfer_build::Config;
-
 fn main() {
-    Config::new()
+    colfer_build::Config::new()
         .out_dir("./src")
-        .compile(&["test.colf"])
+        .compile(&["test.colf", "bench.colf"])
+        .unwrap();
+
+    prost_build::Config::new()
+        .out_dir("./src")
+        .compile_protos(&["bench.proto"], &["./"])
         .unwrap();
 }

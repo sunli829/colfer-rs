@@ -7,7 +7,7 @@ pub fn generate(colfer: &Colfer) -> String {
 
     writeln!(
         &mut code,
-        "#![allow(unused_variables, unused_assignments, unused_mut)]"
+        "#![allow(unused_variables, unused_assignments, unused_mut, unused_imports)]"
     )
     .unwrap();
     writeln!(&mut code).unwrap();

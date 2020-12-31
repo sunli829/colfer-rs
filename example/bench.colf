@@ -1,0 +1,11 @@
+package bench_colfer
+
+type Colfer struct {
+	key   int64
+	host  text
+	port  uint16
+	size  int64
+	hash  uint64
+	ratio float64
+	route bool
+}
