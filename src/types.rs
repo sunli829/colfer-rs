@@ -54,6 +54,7 @@ pub trait Type: Sized {
 }
 
 impl Type for bool {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self {
             w.write_u8(id)?;
@@ -61,10 +62,12 @@ impl Type for bool {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(_r: &mut R, _flag: bool) -> Result<Self> {
         Ok(true)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self {
             1
@@ -75,6 +78,7 @@ impl Type for bool {
 }
 
 impl Type for u32 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self >= 1 << 21 {
             w.write_u8(id | 0x80)?;
@@ -86,6 +90,7 @@ impl Type for u32 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         if !flag {
             Ok(read_uint(r)? as u32)
@@ -94,6 +99,7 @@ impl Type for u32 {
         }
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self >= 1 << 21 {
             5
@@ -106,6 +112,7 @@ impl Type for u32 {
 }
 
 impl Type for u64 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self >= 1 << 49 {
             w.write_u8(id | 0x80)?;
@@ -117,6 +124,7 @@ impl Type for u64 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         if !flag {
             read_uint(r)
@@ -125,6 +133,7 @@ impl Type for u64 {
         }
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self >= 1 << 49 {
             9
@@ -135,20 +144,24 @@ impl Type for u64 {
 }
 
 impl Type for i32 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         (*self as i64).encode(w, id)
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         Ok(i64::decode(r, flag)? as i32)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         (*self as i64).size()
     }
 }
 
 impl Type for i64 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self != 0 {
             let mut x = *self as u64;
@@ -163,6 +176,7 @@ impl Type for i64 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         if !flag {
             Ok(read_uint(r)? as i64)
@@ -171,6 +185,7 @@ impl Type for i64 {
         }
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self >= 0 {
             1 + uint_size(*self as u64)
@@ -181,6 +196,7 @@ impl Type for i64 {
 }
 
 impl Type for f32 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self != 0.0 {
             w.write_u8(id)?;
@@ -189,10 +205,12 @@ impl Type for f32 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         Ok(f32::from_bits(r.read_u32::<BE>()?))
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self != 0.0 {
             1 + 4
@@ -203,6 +221,7 @@ impl Type for f32 {
 }
 
 impl Type for f64 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self != 0.0 {
             w.write_u8(id)?;
@@ -211,10 +230,12 @@ impl Type for f64 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         Ok(f64::from_bits(r.read_u64::<BE>()?))
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self != 0.0 {
             1 + 8
@@ -225,6 +246,7 @@ impl Type for f64 {
 }
 
 impl Type for DateTime {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         let DateTime {
             seconds: s,
@@ -243,6 +265,7 @@ impl Type for DateTime {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         if !flag {
             let s = r.read_u32::<BE>()?;
@@ -261,6 +284,7 @@ impl Type for DateTime {
         }
     }
 
+    #[inline]
     fn size(&self) -> usize {
         let DateTime {
             seconds: s,
@@ -279,6 +303,7 @@ impl Type for DateTime {
 }
 
 impl Type for String {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -288,6 +313,7 @@ impl Type for String {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = vec![0; l as usize];
@@ -295,6 +321,7 @@ impl Type for String {
         Ok(String::from_utf8(s).map_err(|err| Error::new(ErrorKind::Other, err))?)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64) + self.len()
@@ -305,6 +332,7 @@ impl Type for String {
 }
 
 impl Type for Vec<u8> {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -314,6 +342,7 @@ impl Type for Vec<u8> {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = vec![0; l as usize];
@@ -321,6 +350,7 @@ impl Type for Vec<u8> {
         Ok(s)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64) + self.len()
@@ -331,6 +361,7 @@ impl Type for Vec<u8> {
 }
 
 #[doc(hidden)]
+#[inline]
 pub fn encode_message<W: Write, T: Message>(w: &mut W, id: u8, message: Option<&T>) -> Result<()> {
     if let Some(message) = message {
         w.write_u8(id)?;
@@ -340,6 +371,7 @@ pub fn encode_message<W: Write, T: Message>(w: &mut W, id: u8, message: Option<&
 }
 
 #[doc(hidden)]
+#[inline]
 pub fn decode_message<R: Read, M: Message, T: Deref<Target = M> + From<M>>(
     r: &mut R,
 ) -> Result<Option<T>> {
@@ -347,6 +379,7 @@ pub fn decode_message<R: Read, M: Message, T: Deref<Target = M> + From<M>>(
 }
 
 #[doc(hidden)]
+#[inline]
 pub fn encode_messages<W: Write, T: Message>(w: &mut W, id: u8, messages: &[T]) -> Result<()> {
     if !messages.is_empty() {
         w.write_u8(id)?;
@@ -359,6 +392,7 @@ pub fn encode_messages<W: Write, T: Message>(w: &mut W, id: u8, messages: &[T]) 
 }
 
 #[doc(hidden)]
+#[inline]
 pub fn decode_messages<R: Read, T: Message>(r: &mut R) -> Result<Vec<T>> {
     let l = read_uint(r)?;
     let mut s = Vec::with_capacity(l as usize);
@@ -369,6 +403,7 @@ pub fn decode_messages<R: Read, T: Message>(r: &mut R) -> Result<Vec<T>> {
 }
 
 impl Type for Vec<String> {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -381,6 +416,7 @@ impl Type for Vec<String> {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = Vec::with_capacity(l as usize);
@@ -393,6 +429,7 @@ impl Type for Vec<String> {
         Ok(s)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64)
@@ -407,6 +444,7 @@ impl Type for Vec<String> {
 }
 
 impl Type for Vec<Vec<u8>> {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -419,6 +457,7 @@ impl Type for Vec<Vec<u8>> {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = Vec::with_capacity(l as usize);
@@ -431,6 +470,7 @@ impl Type for Vec<Vec<u8>> {
         Ok(s)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64)
@@ -445,6 +485,7 @@ impl Type for Vec<Vec<u8>> {
 }
 
 impl Type for u8 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self != 0 {
             w.write_u8(id)?;
@@ -453,10 +494,12 @@ impl Type for u8 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         r.read_u8()
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self != 0 {
             1 + 1
@@ -467,6 +510,7 @@ impl Type for u8 {
 }
 
 impl Type for u16 {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self >= 1 << 8 {
             w.write_u8(id)?;
@@ -478,6 +522,7 @@ impl Type for u16 {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
         if !flag {
             r.read_u16::<BE>()
@@ -486,6 +531,7 @@ impl Type for u16 {
         }
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if *self >= 1 << 8 {
             3
@@ -498,6 +544,7 @@ impl Type for u16 {
 }
 
 impl Type for Vec<f32> {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -509,6 +556,7 @@ impl Type for Vec<f32> {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = Vec::with_capacity(l as usize);
@@ -518,6 +566,7 @@ impl Type for Vec<f32> {
         Ok(s)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64)
@@ -532,6 +581,7 @@ impl Type for Vec<f32> {
 }
 
 impl Type for Vec<f64> {
+    #[inline]
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if !self.is_empty() {
             w.write_u8(id)?;
@@ -543,6 +593,7 @@ impl Type for Vec<f64> {
         Ok(())
     }
 
+    #[inline]
     fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
         let l = read_uint(r)?;
         let mut s = Vec::with_capacity(l as usize);
@@ -552,6 +603,7 @@ impl Type for Vec<f64> {
         Ok(s)
     }
 
+    #[inline]
     fn size(&self) -> usize {
         if !self.is_empty() {
             1 + uint_size(self.len() as u64)

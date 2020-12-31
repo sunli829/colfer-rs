@@ -16,6 +16,7 @@ pub struct Colfer {
 }
 
 impl Message for Colfer {
+	#[inline]
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		self.key.encode(w, 0)?;
 		self.host.encode(w, 1)?;
@@ -29,6 +30,7 @@ impl Message for Colfer {
 		Ok(())
 	}
 
+	#[inline]
 	fn decode<R: Read>(r: &mut R) -> Result<Self> {
 		let mut obj = Self::default();
 		let (mut id, mut flag) = colfer::read_header(r)?;
@@ -75,6 +77,7 @@ impl Message for Colfer {
 		Ok(obj)
 	}
 
+	#[inline]
 	fn size(&self) -> usize {
 		let mut size = 0;
 		size += self.key.size();

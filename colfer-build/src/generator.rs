@@ -57,6 +57,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         writeln!(&mut code)?;
         writeln!(&mut code, "impl Message for {} {{", s.name)?;
 
+        writeln!(&mut code, "\t#[inline]")?;
         writeln!(
             &mut code,
             "\tfn encode<W: Write>(&self, w: &mut W) -> Result<()> {{"
@@ -81,6 +82,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         writeln!(&mut code, "\t\tOk(())\n\t}}")?;
         writeln!(&mut code)?;
 
+        writeln!(&mut code, "\t#[inline]")?;
         writeln!(
             &mut code,
             "\tfn decode<R: Read>(r: &mut R) -> Result<Self> {{"
@@ -117,6 +119,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         writeln!(&mut code, "\t\tOk(obj)\n\t}}")?;
 
         writeln!(&mut code)?;
+        writeln!(&mut code, "\t#[inline]")?;
         writeln!(&mut code, "\tfn size(&self) -> usize {{")?;
         writeln!(&mut code, "\t\tlet mut size = 0;")?;
         for f in &s.fields {

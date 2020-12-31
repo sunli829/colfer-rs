@@ -27,6 +27,7 @@ pub struct O {
 }
 
 impl Message for O {
+	#[inline]
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		self.b.encode(w, 0)?;
 		self.u32.encode(w, 1)?;
@@ -51,6 +52,7 @@ impl Message for O {
 		Ok(())
 	}
 
+	#[inline]
 	fn decode<R: Read>(r: &mut R) -> Result<Self> {
 		let mut obj = Self::default();
 		let (mut id, mut flag) = colfer::read_header(r)?;
@@ -163,6 +165,7 @@ impl Message for O {
 		Ok(obj)
 	}
 
+	#[inline]
 	fn size(&self) -> usize {
 		let mut size = 0;
 		size += self.b.size();
@@ -193,6 +196,7 @@ pub struct DromedaryCase {
 }
 
 impl Message for DromedaryCase {
+	#[inline]
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		self.pascal_case.encode(w, 0)?;
 		colfer::write_end(w)?;
@@ -200,6 +204,7 @@ impl Message for DromedaryCase {
 		Ok(())
 	}
 
+	#[inline]
 	fn decode<R: Read>(r: &mut R) -> Result<Self> {
 		let mut obj = Self::default();
 		let (mut id, mut flag) = colfer::read_header(r)?;
@@ -210,6 +215,7 @@ impl Message for DromedaryCase {
 		Ok(obj)
 	}
 
+	#[inline]
 	fn size(&self) -> usize {
 		let mut size = 0;
 		size += self.pascal_case.size();
@@ -223,6 +229,7 @@ pub struct EmbedO {
 }
 
 impl Message for EmbedO {
+	#[inline]
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		colfer::encode_message(w, 0, self.inner.as_deref())?;
 		colfer::write_end(w)?;
@@ -230,6 +237,7 @@ impl Message for EmbedO {
 		Ok(())
 	}
 
+	#[inline]
 	fn decode<R: Read>(r: &mut R) -> Result<Self> {
 		let mut obj = Self::default();
 		let (mut id, mut flag) = colfer::read_header(r)?;
@@ -240,6 +248,7 @@ impl Message for EmbedO {
 		Ok(obj)
 	}
 
+	#[inline]
 	fn size(&self) -> usize {
 		let mut size = 0;
 		size += self.inner.as_ref().map(|s| s.size()).unwrap_or_default();
