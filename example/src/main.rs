@@ -60,7 +60,7 @@ fn bench_colfer() {
         }
     }
     println!(
-        "encode: {:.03}s size: {}",
+        "COLFER encode: {:.03}s size: {}",
         (Instant::now() - s).as_secs_f32(),
         data.len()
     );
@@ -72,7 +72,7 @@ fn bench_colfer() {
             Colfer::decode(&mut r).unwrap();
         }
     }
-    println!("decode: {:.03}s", (Instant::now() - s).as_secs_f32());
+    println!("COLFER decode: {:.03}s", (Instant::now() - s).as_secs_f32());
 }
 
 fn bench_pb() {
@@ -128,7 +128,7 @@ fn bench_pb() {
         }
     }
     println!(
-        "encode: {:.03}s size: {}",
+        "Protobuf encode: {:.03}s size: {}",
         (Instant::now() - s).as_secs_f32(),
         data.len()
     );
@@ -140,7 +140,10 @@ fn bench_pb() {
             Colfer::decode(&mut buf).unwrap();
         }
     }
-    println!("decode: {:.03}s", (Instant::now() - s).as_secs_f32());
+    println!(
+        "Protobuf decode: {:.03}s",
+        (Instant::now() - s).as_secs_f32()
+    );
 }
 
 fn main() {
