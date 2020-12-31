@@ -24,6 +24,7 @@ impl Message for Colfer {
 		self.hash.encode(w, 4)?;
 		self.ratio.encode(w, 5)?;
 		self.route.encode(w, 6)?;
+		colfer::write_end(w)?;
 
 		Ok(())
 	}

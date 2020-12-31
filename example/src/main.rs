@@ -4,6 +4,7 @@ mod bench_colfer;
 mod bench_pb;
 mod gen;
 
+use prost::bytes::Bytes;
 use std::io::Cursor;
 use std::time::Instant;
 
@@ -119,7 +120,7 @@ fn bench_pb() {
 
     let s = Instant::now();
     let count = 1000000;
-    let mut data = Vec::new();
+    let mut data: Vec<u8> = Vec::new();
 
     for _ in 0..count {
         for c in &test_data {
@@ -132,14 +133,14 @@ fn bench_pb() {
         data.len()
     );
 
-    // let s = Instant::now();
-    // let mut r = Cursor::new(data);
-    // for _ in 0..count {
-    //     for _ in 0..4 {
-    //         Colfer::decode(&mut r).unwrap();
-    //     }
-    // }
-    // println!("decode: {:.03}s", (Instant::now() - s).as_secs_f32());
+    let s = Instant::now();
+    let mut buf = Bytes::from(data);
+    for _ in 0..count {
+        for _ in 0..4 {
+            Colfer::decode(&mut buf).unwrap();
+        }
+    }
+    println!("decode: {:.03}s", (Instant::now() - s).as_secs_f32());
 }
 
 fn main() {

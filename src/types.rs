@@ -151,7 +151,7 @@ impl Type for i32 {
 impl Type for i64 {
     fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
         if *self != 0 {
-            let mut x = *self as u32;
+            let mut x = *self as u64;
             if *self >= 0 {
                 w.write_u8(id)?;
             } else {
@@ -569,14 +569,18 @@ mod tests {
 
     use crate::*;
 
-    fn do_test<T: Type + PartialEq + Debug>(value: T) {
+    fn do_test<T: Type + PartialEq + Debug + Default>(value: T) {
         let mut data = Vec::new();
         value.encode(&mut data, 10).unwrap();
 
         let mut r = Cursor::new(&data);
-        let (id, flag) = read_header(&mut r).unwrap();
-        assert_eq!(id, 10);
-        assert_eq!(T::decode(&mut r, flag).unwrap(), value);
+        if data.is_empty() {
+            assert_eq!(T::default(), value);
+        } else {
+            let (id, flag) = read_header(&mut r).unwrap();
+            assert_eq!(id, 10);
+            assert_eq!(T::decode(&mut r, flag).unwrap(), value);
+        }
     }
 
     #[test]

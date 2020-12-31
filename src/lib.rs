@@ -9,7 +9,7 @@ mod types;
 
 use std::io::{Cursor, Read, Result, Write};
 
-use byteorder::ReadBytesExt;
+use byteorder::{ReadBytesExt, WriteBytesExt};
 pub use datetime::DateTime;
 pub use types::{decode_message, decode_messages, encode_message, encode_messages, Type};
 
@@ -48,4 +48,10 @@ pub trait Message: Sized {
 pub fn read_header<R: Read>(r: &mut R) -> Result<(u8, bool)> {
     let d = r.read_u8()?;
     Ok((d & 0x7f, d & 0x80 > 0))
+}
+
+#[inline]
+#[doc(hidden)]
+pub fn write_end<W: Write>(w: &mut W) -> Result<()> {
+    w.write_u8(0x7f)
 }

@@ -76,6 +76,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
                 _ => writeln!(&mut code, "\t\tself.{}.encode(w, {})?;", f.name, idx)?,
             }
         }
+        writeln!(&mut code, "\t\tcolfer::write_end(w)?;",)?;
         writeln!(&mut code)?;
         writeln!(&mut code, "\t\tOk(())\n\t}}")?;
         writeln!(&mut code)?;

@@ -46,6 +46,7 @@ impl Message for O {
 		self.u16.encode(w, 15)?;
 		self.f32s.encode(w, 16)?;
 		self.f64s.encode(w, 17)?;
+		colfer::write_end(w)?;
 
 		Ok(())
 	}
@@ -194,6 +195,7 @@ pub struct DromedaryCase {
 impl Message for DromedaryCase {
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		self.pascal_case.encode(w, 0)?;
+		colfer::write_end(w)?;
 
 		Ok(())
 	}
@@ -223,6 +225,7 @@ pub struct EmbedO {
 impl Message for EmbedO {
 	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
 		colfer::encode_message(w, 0, self.inner.as_deref())?;
+		colfer::write_end(w)?;
 
 		Ok(())
 	}
