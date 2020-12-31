@@ -27,6 +27,7 @@ impl Config {
             let source = std::fs::read_to_string(file)?;
             let colfer = parse(&source).map_err(|err| anyhow::anyhow!(err.to_string()))?;
 
+            colfer.validate()?;
             std::fs::write(
                 self.out_dir
                     .join(colfer.package.to_snake())

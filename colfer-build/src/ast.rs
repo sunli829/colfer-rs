@@ -55,4 +55,32 @@ impl Colfer {
         }
         false
     }
+
+    pub fn validate(&self) -> anyhow::Result<()> {
+        self.validate_field_types()?;
+        self.validate_fields_count()?;
+        Ok(())
+    }
+
+    fn validate_fields_count(&self) -> anyhow::Result<()> {
+        for s in &self.structs {
+            if s.fields.len() > 127 {
+                anyhow::anyhow!("The maximum number of fields in a struct must be less than 128, but struct `{}` exceeds this limit.", s.name);
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_field_types(&self) -> anyhow::Result<()> {
+        for s in &self.structs {
+            for f in &s.fields {
+                if let FieldType::Struct(name) | FieldType::ArrayStruct(name) = &f.ty {
+                    if self.structs.iter().find(|s| &s.name == name).is_none() {
+                        anyhow::anyhow!("Struct `{}` is not defined.", name);
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
 }
