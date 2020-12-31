@@ -2,14 +2,13 @@
 //! is a Rust implementation of the [colfer](https://github.com/pascaldekloe/colfer).
 
 #![warn(missing_docs)]
-#![forbid(unsafe_code)]
 
 mod datetime;
 mod types;
 
-use std::io::{Cursor, Read, Result, Write};
-
-use byteorder::{ReadBytesExt, WriteBytesExt};
+#[doc(hidden)]
+pub use bytes;
+use bytes::{Buf, BufMut};
 pub use datetime::DateTime;
 pub use types::{decode_message, decode_messages, encode_message, encode_messages, Type};
 
@@ -22,36 +21,36 @@ pub const MAX_LIST_SIZE: usize = 64 * 1024;
 /// A colfer message.
 pub trait Message: Sized {
     /// Encodes the message to writer `W`.
-    fn encode<W: Write>(&self, w: &mut W) -> Result<()>;
+    fn encode<B: BufMut>(&self, buf: &mut B);
 
     /// Decodes an instance of the message from reader `R`.
-    fn decode<R: Read>(r: &mut R) -> Result<Self>;
+    fn decode<B: Buf>(buf: B) -> Self;
 
     /// Returns the encoded length of the message.
     fn size(&self) -> usize;
 
     /// Encodes the message to `Vec<u8>`.
-    fn to_vec(&self) -> Result<Vec<u8>> {
+    fn to_vec(&self) -> Vec<u8> {
         let mut data = Vec::new();
-        self.encode(&mut data)?;
-        Ok(data)
+        self.encode(&mut data);
+        data
     }
 
     /// Decodes an instance of the message from `Vec<u8>`.
-    fn from_bytes(data: &[u8]) -> Result<Self> {
-        Self::decode(&mut Cursor::new(data))
+    fn from_bytes(data: &[u8]) -> Self {
+        Self::decode(data)
     }
 }
 
 #[inline]
 #[doc(hidden)]
-pub fn read_header<R: Read>(r: &mut R) -> Result<(u8, bool)> {
-    let d = r.read_u8()?;
-    Ok((d & 0x7f, d & 0x80 > 0))
+pub fn read_header<B: Buf>(mut buf: B) -> (u8, bool) {
+    let d = buf.get_u8();
+    (d & 0x7f, d & 0x80 > 0)
 }
 
 #[inline]
 #[doc(hidden)]
-pub fn write_end<W: Write>(w: &mut W) -> Result<()> {
-    w.write_u8(0x7f)
+pub fn write_end<B: BufMut>(buf: &mut B) {
+    buf.put_u8(0x7f)
 }

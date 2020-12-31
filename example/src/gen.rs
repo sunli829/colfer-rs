@@ -1,6 +1,6 @@
 #![allow(unused_variables, unused_assignments, unused_mut, unused_imports)]
 
-use std::io::{Write, Read, Result};
+use colfer::bytes::{Buf, BufMut};
 
 use colfer::{Message, Type, DateTime};
 
@@ -27,140 +27,139 @@ pub struct O {
 }
 
 impl Message for O {
-	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
-		self.b.encode(w, 0)?;
-		self.u32.encode(w, 1)?;
-		self.u64.encode(w, 2)?;
-		self.i32.encode(w, 3)?;
-		self.i64.encode(w, 4)?;
-		self.f32.encode(w, 5)?;
-		self.f64.encode(w, 6)?;
-		self.t.encode(w, 7)?;
-		self.s.encode(w, 8)?;
-		self.a.encode(w, 9)?;
-		colfer::encode_message(w, 10, self.o.as_deref())?;
-		colfer::encode_messages(w, 11, &self.os)?;
-		self.ss.encode(w, 12)?;
-		self.r#as.encode(w, 13)?;
-		self.u8.encode(w, 14)?;
-		self.u16.encode(w, 15)?;
-		self.f32s.encode(w, 16)?;
-		self.f64s.encode(w, 17)?;
-		colfer::write_end(w)?;
-
-		Ok(())
+	fn encode<B: BufMut>(&self, buf: &mut B) {
+		self.b.encode(buf, 0);
+		self.u32.encode(buf, 1);
+		self.u64.encode(buf, 2);
+		self.i32.encode(buf, 3);
+		self.i64.encode(buf, 4);
+		self.f32.encode(buf, 5);
+		self.f64.encode(buf, 6);
+		self.t.encode(buf, 7);
+		self.s.encode(buf, 8);
+		self.a.encode(buf, 9);
+		colfer::encode_message(buf, 10, self.o.as_deref());
+		colfer::encode_messages(buf, 11, &self.os);
+		self.ss.encode(buf, 12);
+		self.r#as.encode(buf, 13);
+		self.u8.encode(buf, 14);
+		self.u16.encode(buf, 15);
+		self.f32s.encode(buf, 16);
+		self.f64s.encode(buf, 17);
+		colfer::write_end(buf);
 	}
 
-	fn decode<R: Read>(r: &mut R) -> Result<Self> {
+	fn decode<B: Buf>(buf: B) -> Self {
+		let mut buf = buf;
 		let mut obj = Self::default();
-		let (mut id, mut flag) = colfer::read_header(r)?;
+		let (mut id, mut flag) = colfer::read_header(&mut buf);
 		if id == 0 {
-			obj.b = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.b = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 1 {
-			obj.u32 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.u32 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 2 {
-			obj.u64 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.u64 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 3 {
-			obj.i32 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.i32 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 4 {
-			obj.i64 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.i64 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 5 {
-			obj.f32 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.f32 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 6 {
-			obj.f64 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.f64 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 7 {
-			obj.t = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.t = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 8 {
-			obj.s = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.s = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 9 {
-			obj.a = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.a = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 10 {
-			obj.o = colfer::decode_message(r)?;
-			let next = colfer::read_header(r)?;
+			obj.o = colfer::decode_message(&mut buf);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 11 {
-			obj.os = colfer::decode_messages(r)?;
-			let next = colfer::read_header(r)?;
+			obj.os = colfer::decode_messages(&mut buf);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 12 {
-			obj.ss = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.ss = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 13 {
-			obj.r#as = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.r#as = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 14 {
-			obj.u8 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.u8 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 15 {
-			obj.u16 = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.u16 = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 16 {
-			obj.f32s = Type::decode(r, flag)?;
-			let next = colfer::read_header(r)?;
+			obj.f32s = Type::decode(&mut buf, flag);
+			let next = colfer::read_header(&mut buf);
 			id = next.0;
 			flag = next.1;
 		}
 		if id == 17 {
-			obj.f64s = Type::decode(r, flag)?;
+			obj.f64s = Type::decode(&mut buf, flag);
 		}
 
-		Ok(obj)
+		obj
 	}
 
 	fn size(&self) -> usize {
@@ -193,21 +192,20 @@ pub struct DromedaryCase {
 }
 
 impl Message for DromedaryCase {
-	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
-		self.pascal_case.encode(w, 0)?;
-		colfer::write_end(w)?;
-
-		Ok(())
+	fn encode<B: BufMut>(&self, buf: &mut B) {
+		self.pascal_case.encode(buf, 0);
+		colfer::write_end(buf);
 	}
 
-	fn decode<R: Read>(r: &mut R) -> Result<Self> {
+	fn decode<B: Buf>(buf: B) -> Self {
+		let mut buf = buf;
 		let mut obj = Self::default();
-		let (mut id, mut flag) = colfer::read_header(r)?;
+		let (mut id, mut flag) = colfer::read_header(&mut buf);
 		if id == 0 {
-			obj.pascal_case = Type::decode(r, flag)?;
+			obj.pascal_case = Type::decode(&mut buf, flag);
 		}
 
-		Ok(obj)
+		obj
 	}
 
 	fn size(&self) -> usize {
@@ -223,21 +221,20 @@ pub struct EmbedO {
 }
 
 impl Message for EmbedO {
-	fn encode<W: Write>(&self, w: &mut W) -> Result<()> {
-		colfer::encode_message(w, 0, self.inner.as_deref())?;
-		colfer::write_end(w)?;
-
-		Ok(())
+	fn encode<B: BufMut>(&self, buf: &mut B) {
+		colfer::encode_message(buf, 0, self.inner.as_deref());
+		colfer::write_end(buf);
 	}
 
-	fn decode<R: Read>(r: &mut R) -> Result<Self> {
+	fn decode<B: Buf>(buf: B) -> Self {
+		let mut buf = buf;
 		let mut obj = Self::default();
-		let (mut id, mut flag) = colfer::read_header(r)?;
+		let (mut id, mut flag) = colfer::read_header(&mut buf);
 		if id == 0 {
-			obj.inner = colfer::decode_message(r)?;
+			obj.inner = colfer::decode_message(&mut buf);
 		}
 
-		Ok(obj)
+		obj
 	}
 
 	fn size(&self) -> usize {

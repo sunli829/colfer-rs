@@ -1,28 +1,26 @@
-use std::io::{Error, ErrorKind, Read, Result, Write};
 use std::ops::Deref;
 
-use byteorder::{ReadBytesExt, WriteBytesExt, BE};
+use bytes::{Buf, BufMut};
 
 use crate::{DateTime, Message};
 
 #[inline]
-fn write_uint<W: Write>(w: &mut W, mut x: u64) -> Result<()> {
+fn write_uint<B: BufMut>(buf: &mut B, mut x: u64) {
     while x >= 0x80 {
-        w.write_u8((x | 0x80) as u8)?;
+        buf.put_u8((x | 0x80) as u8);
         x >>= 7;
     }
-    w.write_u8(x as u8)?;
-    Ok(())
+    buf.put_u8(x as u8);
 }
 
 #[inline]
-fn read_uint<R: Read>(r: &mut R) -> Result<u64> {
-    let mut x = r.read_u8()? as u64;
+fn read_uint<B: Buf>(mut buf: B) -> u64 {
+    let mut x = buf.get_u8() as u64;
     if x >= 0x80 {
         x &= 0x7f;
         let mut shift = 7;
         loop {
-            let b = r.read_u8()? as u64;
+            let b = buf.get_u8() as u64;
             if b < 0x80 || shift == 56 {
                 x |= b << shift;
                 break;
@@ -31,7 +29,7 @@ fn read_uint<R: Read>(r: &mut R) -> Result<u64> {
             shift += 7;
         }
     }
-    Ok(x)
+    x
 }
 
 #[inline]
@@ -46,23 +44,22 @@ fn uint_size(mut x: u64) -> usize {
 
 #[doc(hidden)]
 pub trait Type: Sized {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()>;
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8);
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self>;
+    fn decode<B: Buf>(buf: B, flag: bool) -> Self;
 
     fn size(&self) -> usize;
 }
 
 impl Type for bool {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self {
-            w.write_u8(id)?;
+            buf.put_u8(id);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(_r: &mut R, _flag: bool) -> Result<Self> {
-        Ok(true)
+    fn decode<B: Buf>(_buf: B, _flag: bool) -> Self {
+        true
     }
 
     fn size(&self) -> usize {
@@ -75,22 +72,21 @@ impl Type for bool {
 }
 
 impl Type for u32 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self >= 1 << 21 {
-            w.write_u8(id | 0x80)?;
-            w.write_u32::<BE>(*self)?;
+            buf.put_u8(id | 0x80);
+            buf.put_u32(*self);
         } else if *self != 0 {
-            w.write_u8(id)?;
-            write_uint(w, *self as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, *self as u64);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
+    fn decode<B: Buf>(mut buf: B, flag: bool) -> Self {
         if !flag {
-            Ok(read_uint(r)? as u32)
+            read_uint(buf) as u32
         } else {
-            r.read_u32::<BE>()
+            buf.get_u32()
         }
     }
 
@@ -106,22 +102,21 @@ impl Type for u32 {
 }
 
 impl Type for u64 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self >= 1 << 49 {
-            w.write_u8(id | 0x80)?;
-            w.write_u64::<BE>(*self)?;
+            buf.put_u8(id | 0x80);
+            buf.put_u64(*self);
         } else if *self != 0 {
-            w.write_u8(id)?;
-            write_uint(w, *self as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, *self as u64);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
+    fn decode<B: Buf>(mut buf: B, flag: bool) -> Self {
         if !flag {
-            read_uint(r)
+            read_uint(buf)
         } else {
-            r.read_u64::<BE>()
+            buf.get_u64()
         }
     }
 
@@ -135,12 +130,12 @@ impl Type for u64 {
 }
 
 impl Type for i32 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
-        (*self as i64).encode(w, id)
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
+        (*self as i64).encode(buf, id)
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
-        Ok(i64::decode(r, flag)? as i32)
+    fn decode<B: Buf>(buf: B, flag: bool) -> Self {
+        i64::decode(buf, flag) as i32
     }
 
     fn size(&self) -> usize {
@@ -149,25 +144,24 @@ impl Type for i32 {
 }
 
 impl Type for i64 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self != 0 {
             let mut x = *self as u64;
             if *self >= 0 {
-                w.write_u8(id)?;
+                buf.put_u8(id);
             } else {
                 x = !x + 1;
-                w.write_u8(id | 0x80)?;
+                buf.put_u8(id | 0x80);
             }
-            write_uint(w, x as u64)?;
+            write_uint(buf, x as u64);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
+    fn decode<B: Buf>(buf: B, flag: bool) -> Self {
         if !flag {
-            Ok(read_uint(r)? as i64)
+            read_uint(buf) as i64
         } else {
-            Ok((!read_uint(r)? + 1) as i64)
+            (!read_uint(buf) + 1) as i64
         }
     }
 
@@ -181,16 +175,15 @@ impl Type for i64 {
 }
 
 impl Type for f32 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self != 0.0 {
-            w.write_u8(id)?;
-            w.write_u32::<BE>(self.to_bits())?;
+            buf.put_u8(id);
+            buf.put_u32(self.to_bits());
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        Ok(f32::from_bits(r.read_u32::<BE>()?))
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        f32::from_bits(buf.get_u32())
     }
 
     fn size(&self) -> usize {
@@ -203,16 +196,15 @@ impl Type for f32 {
 }
 
 impl Type for f64 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self != 0.0 {
-            w.write_u8(id)?;
-            w.write_u64::<BE>(self.to_bits())?;
+            buf.put_u8(id);
+            buf.put_u64(self.to_bits());
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        Ok(f64::from_bits(r.read_u64::<BE>()?))
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        f64::from_bits(buf.get_u64())
     }
 
     fn size(&self) -> usize {
@@ -225,39 +217,38 @@ impl Type for f64 {
 }
 
 impl Type for DateTime {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         let DateTime {
             seconds: s,
             nano_seconds: ns,
         } = *self;
         if s != 0 || ns != 0 {
             if s < 1 << 32 {
-                w.write_u8(id)?;
-                w.write_u32::<BE>(s as u32)?;
+                buf.put_u8(id);
+                buf.put_u32(s as u32);
             } else {
-                w.write_u8(id | 0x80)?;
-                w.write_u64::<BE>(s as u64)?;
+                buf.put_u8(id | 0x80);
+                buf.put_u64(s as u64);
             }
-            w.write_u32::<BE>(ns)?;
+            buf.put_u32(ns);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
+    fn decode<B: Buf>(mut buf: B, flag: bool) -> Self {
         if !flag {
-            let s = r.read_u32::<BE>()?;
-            let ns = r.read_u32::<BE>()?;
-            Ok(DateTime {
+            let s = buf.get_u32();
+            let ns = buf.get_u32();
+            DateTime {
                 seconds: s as i64,
                 nano_seconds: ns,
-            })
+            }
         } else {
-            let s = r.read_u64::<BE>()?;
-            let ns = r.read_u32::<BE>()?;
-            Ok(DateTime {
+            let s = buf.get_u64();
+            let ns = buf.get_u32();
+            DateTime {
                 seconds: s as i64,
                 nano_seconds: ns,
-            })
+            }
         }
     }
 
@@ -279,20 +270,19 @@ impl Type for DateTime {
 }
 
 impl Type for String {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
-            w.write_all(self.as_bytes())?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
+            buf.put(self.as_bytes());
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = vec![0; l as usize];
-        r.read_exact(&mut s)?;
-        Ok(String::from_utf8(s).map_err(|err| Error::new(ErrorKind::Other, err))?)
+        buf.copy_to_slice(&mut s);
+        unsafe { String::from_utf8_unchecked(s) }
     }
 
     fn size(&self) -> usize {
@@ -305,20 +295,19 @@ impl Type for String {
 }
 
 impl Type for Vec<u8> {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
-            w.write_all(self)?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
+            buf.put(self.as_slice());
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = vec![0; l as usize];
-        r.read_exact(&mut s)?;
-        Ok(s)
+        buf.copy_to_slice(&mut s);
+        s
     }
 
     fn size(&self) -> usize {
@@ -331,66 +320,61 @@ impl Type for Vec<u8> {
 }
 
 #[doc(hidden)]
-pub fn encode_message<W: Write, T: Message>(w: &mut W, id: u8, message: Option<&T>) -> Result<()> {
+pub fn encode_message<B: BufMut, T: Message>(buf: &mut B, id: u8, message: Option<&T>) {
     if let Some(message) = message {
-        w.write_u8(id)?;
-        message.encode(w)?;
+        buf.put_u8(id);
+        message.encode(buf);
     }
-    Ok(())
 }
 
 #[doc(hidden)]
-pub fn decode_message<R: Read, M: Message, T: Deref<Target = M> + From<M>>(
-    r: &mut R,
-) -> Result<Option<T>> {
-    Ok(Some(T::from(M::decode(r)?)))
+pub fn decode_message<B: Buf, M: Message, T: Deref<Target = M> + From<M>>(buf: B) -> Option<T> {
+    Some(T::from(M::decode(buf)))
 }
 
 #[doc(hidden)]
-pub fn encode_messages<W: Write, T: Message>(w: &mut W, id: u8, messages: &[T]) -> Result<()> {
+pub fn encode_messages<B: BufMut, T: Message>(buf: &mut B, id: u8, messages: &[T]) {
     if !messages.is_empty() {
-        w.write_u8(id)?;
-        write_uint(w, messages.len() as u64)?;
+        buf.put_u8(id);
+        write_uint(buf, messages.len() as u64);
         for s in messages {
-            s.encode(w)?;
+            s.encode(buf);
         }
     }
-    Ok(())
 }
 
 #[doc(hidden)]
-pub fn decode_messages<R: Read, T: Message>(r: &mut R) -> Result<Vec<T>> {
-    let l = read_uint(r)?;
+pub fn decode_messages<B: Buf, T: Message>(mut buf: B) -> Vec<T> {
+    let l = read_uint(&mut buf);
     let mut s = Vec::with_capacity(l as usize);
     for _ in 0..l {
-        s.push(T::decode(r)?);
+        s.push(T::decode(&mut buf));
     }
-    Ok(s)
+    s
 }
 
 impl Type for Vec<String> {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
             for s in self {
-                write_uint(w, self.len() as u64)?;
-                w.write_all(s.as_bytes())?;
+                write_uint(buf, self.len() as u64);
+                buf.put(s.as_bytes());
             }
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = Vec::with_capacity(l as usize);
         for _ in 0..l {
-            let sz = read_uint(r)?;
+            let sz = read_uint(&mut buf);
             let mut d = vec![0; sz as usize];
-            r.read_exact(&mut d)?;
-            s.push(String::from_utf8(d).map_err(|err| Error::new(ErrorKind::Other, err))?);
+            buf.copy_to_slice(&mut d);
+            s.push(unsafe { String::from_utf8_unchecked(d) });
         }
-        Ok(s)
+        s
     }
 
     fn size(&self) -> usize {
@@ -407,28 +391,27 @@ impl Type for Vec<String> {
 }
 
 impl Type for Vec<Vec<u8>> {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
             for s in self {
-                write_uint(w, self.len() as u64)?;
-                w.write_all(s)?;
+                write_uint(buf, self.len() as u64);
+                buf.put(s.as_slice());
             }
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = Vec::with_capacity(l as usize);
         for _ in 0..l {
-            let sz = read_uint(r)?;
+            let sz = read_uint(&mut buf);
             let mut d = vec![0; sz as usize];
-            r.read_exact(&mut d)?;
+            buf.copy_to_slice(&mut d);
             s.push(d);
         }
-        Ok(s)
+        s
     }
 
     fn size(&self) -> usize {
@@ -445,16 +428,15 @@ impl Type for Vec<Vec<u8>> {
 }
 
 impl Type for u8 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self != 0 {
-            w.write_u8(id)?;
-            w.write_u8(*self)?;
+            buf.put_u8(id);
+            buf.put_u8(*self);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        r.read_u8()
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        buf.get_u8()
     }
 
     fn size(&self) -> usize {
@@ -467,22 +449,21 @@ impl Type for u8 {
 }
 
 impl Type for u16 {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if *self >= 1 << 8 {
-            w.write_u8(id)?;
-            w.write_u16::<BE>(*self)?;
+            buf.put_u8(id);
+            buf.put_u16(*self);
         } else if *self != 0 {
-            w.write_u8(id | 0x80)?;
-            w.write_u8(*self as u8)?;
+            buf.put_u8(id | 0x80);
+            buf.put_u8(*self as u8);
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, flag: bool) -> Result<Self> {
+    fn decode<B: Buf>(mut buf: B, flag: bool) -> Self {
         if !flag {
-            r.read_u16::<BE>()
+            buf.get_u16()
         } else {
-            Ok(r.read_u8()? as u16)
+            buf.get_u8() as u16
         }
     }
 
@@ -498,24 +479,23 @@ impl Type for u16 {
 }
 
 impl Type for Vec<f32> {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
             for s in self {
-                w.write_u32::<BE>(s.to_bits())?;
+                buf.put_u32(s.to_bits());
             }
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = Vec::with_capacity(l as usize);
         for _ in 0..l {
-            s.push(f32::from_bits(r.read_u32::<BE>()?));
+            s.push(f32::from_bits(buf.get_u32()));
         }
-        Ok(s)
+        s
     }
 
     fn size(&self) -> usize {
@@ -532,24 +512,23 @@ impl Type for Vec<f32> {
 }
 
 impl Type for Vec<f64> {
-    fn encode<W: Write>(&self, w: &mut W, id: u8) -> Result<()> {
+    fn encode<B: BufMut>(&self, buf: &mut B, id: u8) {
         if !self.is_empty() {
-            w.write_u8(id)?;
-            write_uint(w, self.len() as u64)?;
+            buf.put_u8(id);
+            write_uint(buf, self.len() as u64);
             for s in self {
-                w.write_u64::<BE>(s.to_bits())?;
+                buf.put_u64(s.to_bits());
             }
         }
-        Ok(())
     }
 
-    fn decode<R: Read>(r: &mut R, _flag: bool) -> Result<Self> {
-        let l = read_uint(r)?;
+    fn decode<B: Buf>(mut buf: B, _flag: bool) -> Self {
+        let l = read_uint(&mut buf);
         let mut s = Vec::with_capacity(l as usize);
         for _ in 0..l {
-            s.push(f64::from_bits(r.read_u64::<BE>()?));
+            s.push(f64::from_bits(buf.get_u64()));
         }
-        Ok(s)
+        s
     }
 
     fn size(&self) -> usize {
@@ -571,15 +550,15 @@ mod tests {
 
     fn do_test<T: Type + PartialEq + Debug + Default>(value: T) {
         let mut data = Vec::new();
-        value.encode(&mut data, 10).unwrap();
+        value.encode(&mut data, 10);
 
         let mut r = Cursor::new(&data);
         if data.is_empty() {
             assert_eq!(T::default(), value);
         } else {
-            let (id, flag) = read_header(&mut r).unwrap();
+            let (id, flag) = read_header(&mut r);
             assert_eq!(id, 10);
-            assert_eq!(T::decode(&mut r, flag).unwrap(), value);
+            assert_eq!(T::decode(&mut r, flag), value);
         }
     }
 

@@ -56,7 +56,7 @@ fn bench_colfer() {
 
     for _ in 0..count {
         for c in &test_data {
-            c.encode(&mut data).unwrap();
+            c.encode(&mut data);
         }
     }
     println!(
@@ -69,7 +69,7 @@ fn bench_colfer() {
     let mut r = Cursor::new(data);
     for _ in 0..count {
         for _ in 0..4 {
-            Colfer::decode(&mut r).unwrap();
+            Colfer::decode(&mut r);
         }
     }
     println!("decode: {:.03}s", (Instant::now() - s).as_secs_f32());

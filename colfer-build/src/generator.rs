@@ -10,7 +10,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         "#![allow(unused_variables, unused_assignments, unused_mut, unused_imports)]"
     )?;
     writeln!(&mut code)?;
-    writeln!(&mut code, "use std::io::{{Write, Read, Result}};")?;
+    writeln!(&mut code, "use colfer::bytes::{{Buf, BufMut}};")?;
     writeln!(&mut code)?;
     writeln!(&mut code, "use colfer::{{Message, Type, DateTime}};")?;
     writeln!(&mut code)?;
@@ -57,56 +57,54 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         writeln!(&mut code)?;
         writeln!(&mut code, "impl Message for {} {{", s.name)?;
 
-        writeln!(
-            &mut code,
-            "\tfn encode<W: Write>(&self, w: &mut W) -> Result<()> {{"
-        )?;
+        writeln!(&mut code, "\tfn encode<B: BufMut>(&self, buf: &mut B) {{")?;
         for (idx, f) in s.fields.iter().enumerate() {
             match &f.ty {
                 FieldType::Struct(_) => writeln!(
                     &mut code,
-                    "\t\tcolfer::encode_message(w, {}, self.{}.as_deref())?;",
+                    "\t\tcolfer::encode_message(buf, {}, self.{}.as_deref());",
                     idx, f.name
                 )?,
                 FieldType::ArrayStruct(_) => writeln!(
                     &mut code,
-                    "\t\tcolfer::encode_messages(w, {}, &self.{})?;",
+                    "\t\tcolfer::encode_messages(buf, {}, &self.{});",
                     idx, f.name
                 )?,
-                _ => writeln!(&mut code, "\t\tself.{}.encode(w, {})?;", f.name, idx)?,
+                _ => writeln!(&mut code, "\t\tself.{}.encode(buf, {});", f.name, idx)?,
             }
         }
-        writeln!(&mut code, "\t\tcolfer::write_end(w)?;",)?;
-        writeln!(&mut code)?;
-        writeln!(&mut code, "\t\tOk(())\n\t}}")?;
+        writeln!(&mut code, "\t\tcolfer::write_end(buf);")?;
+        writeln!(&mut code, "\t}}")?;
         writeln!(&mut code)?;
 
-        writeln!(
-            &mut code,
-            "\tfn decode<R: Read>(r: &mut R) -> Result<Self> {{"
-        )?;
+        writeln!(&mut code, "\tfn decode<B: Buf>(buf: B) -> Self {{")?;
+        writeln!(&mut code, "\t\tlet mut buf = buf;")?;
         writeln!(&mut code, "\t\tlet mut obj = Self::default();")?;
         writeln!(
             &mut code,
-            "\t\tlet (mut id, mut flag) = colfer::read_header(r)?;"
+            "\t\tlet (mut id, mut flag) = colfer::read_header(&mut buf);"
         )?;
         for (idx, f) in s.fields.iter().enumerate() {
             writeln!(&mut code, "\t\tif id == {} {{", idx)?;
             match &f.ty {
                 FieldType::Struct(_) => writeln!(
                     &mut code,
-                    "\t\t\tobj.{} = colfer::decode_message(r)?;",
+                    "\t\t\tobj.{} = colfer::decode_message(&mut buf);",
                     f.name,
                 )?,
                 FieldType::ArrayStruct(_) => writeln!(
                     &mut code,
-                    "\t\t\tobj.{} = colfer::decode_messages(r)?;",
+                    "\t\t\tobj.{} = colfer::decode_messages(&mut buf);",
                     f.name,
                 )?,
-                _ => writeln!(&mut code, "\t\t\tobj.{} = Type::decode(r, flag)?;", f.name)?,
+                _ => writeln!(
+                    &mut code,
+                    "\t\t\tobj.{} = Type::decode(&mut buf, flag);",
+                    f.name
+                )?,
             }
             if idx < s.fields.len() - 1 {
-                writeln!(&mut code, "\t\t\tlet next = colfer::read_header(r)?;")?;
+                writeln!(&mut code, "\t\t\tlet next = colfer::read_header(&mut buf);")?;
                 writeln!(&mut code, "\t\t\tid = next.0;")?;
                 writeln!(&mut code, "\t\t\tflag = next.1;")?;
             }
@@ -114,7 +112,7 @@ pub fn generate(colfer: &Colfer) -> anyhow::Result<String> {
         }
         writeln!(&mut code)?;
 
-        writeln!(&mut code, "\t\tOk(obj)\n\t}}")?;
+        writeln!(&mut code, "\t\tobj\n\t}}")?;
 
         writeln!(&mut code)?;
         writeln!(&mut code, "\tfn size(&self) -> usize {{")?;
