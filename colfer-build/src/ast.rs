@@ -43,12 +43,8 @@ impl Colfer {
         if let Some(s) = self.structs.iter().find(|s| s.name == start) {
             for field in &s.fields {
                 if let FieldType::Struct(struct_name) = &field.ty {
-                    if struct_name == start {
+                    if struct_name == start || self.need_box(&struct_name, ty) {
                         return true;
-                    } else {
-                        if self.need_box(&struct_name, ty) {
-                            return true;
-                        }
                     }
                 }
             }

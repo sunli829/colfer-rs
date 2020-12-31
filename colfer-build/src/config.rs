@@ -9,13 +9,15 @@ pub struct Config {
     out_dir: PathBuf,
 }
 
-impl Config {
-    pub fn new() -> Self {
-        Config {
+impl Default for Config {
+    fn default() -> Self {
+        Self {
             out_dir: std::env::var("OUT_DIR").unwrap().into(),
         }
     }
+}
 
+impl Config {
     pub fn out_dir(self, path: impl Into<PathBuf>) -> Self {
         Self {
             out_dir: path.into(),

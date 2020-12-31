@@ -140,7 +140,7 @@ fn struct_def<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     let body = delimited(tag("{"), fields, tag("}"));
 
     map(tuple((type_struct, sp, body)), |(name, _, fields)| Struct {
-        name: name.to_string(),
+        name,
         fields,
     })(input)
 }
@@ -153,10 +153,7 @@ fn colfer<'a, E: ParseError<&'a str> + ContextError<&'a str>>(
     context(
         "colfer",
         map(tuple((package, structs, eof)), |(package, structs, _)| {
-            Colfer {
-                package: package.to_string(),
-                structs,
-            }
+            Colfer { package, structs }
         }),
     )(input)
 }
